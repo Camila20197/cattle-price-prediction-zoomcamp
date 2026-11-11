@@ -1,0 +1,13 @@
+# Entornos y cachés
+.venv/
+venv/
+__pycache__/
+.ipynb_checkpoints/
+
+# Datos procesados y modelos generados (se recrean con train.py)
+data/processed/*
+!data/processed/.gitkeep
+models/*
+!models/.gitkeep
+data/raw/sio-carnes-01-ene-a-30-jun-.csv
+reports/figures/_old/
