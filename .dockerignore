@@ -1,0 +1,11 @@
+# Keep the build context small: only what the Dockerfile copies is needed
+.venv/
+.git/
+data/
+notebooks/
+reports/
+tests/
+docs/
+deployment/
+**/__pycache__/
+**/.ipynb_checkpoints/

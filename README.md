@@ -2,7 +2,7 @@
 
 This project is a personal initiative born at home: my father trades steers in Entre Ríos, Argentina, and every sale raises the same question — *is this a good price?* It implements an end-to-end Machine Learning project that estimates how much a lot of steers will be paid compared with the market, and which characteristics of the lot move that price.
 
-> **ML Zoomcamp 2026 — Midterm project.** Status: cleaning, EDA, model training and training script done · web service and deployment in progress.
+> **ML Zoomcamp 2026 — Midterm project.** Status: cleaning, EDA, model training, training script, web service and Docker image done · cloud deployment in progress.
 
 ## 📑 Table of Contents
 * [❓ Problem Description](#-problem-description)
@@ -64,7 +64,7 @@ The project follows the CRISP-DM process:
 2. **Exploratory Data Analysis:** univariate, bivariate and multivariate analysis to choose targets, features and methods.
 3. **Modelling:** linear models against tree-based models, with hyperparameter tuning and a time-based validation.
 4. **Training script:** `train.py` trains the final models and saves them.
-5. **Web service:** `predict.py` serves the models with FastAPI.
+5. **Web service:** `predict.py` serves the model with Flask and the Waitress production server.
 6. **Containerization and deployment:** Docker image deployed to the cloud.
 
 ## 🖥️ Technologies Used
@@ -75,7 +75,8 @@ The project follows the CRISP-DM process:
 * SciPy, statsmodels (Statistical tests)
 * Matplotlib, seaborn (Visualization)
 * scikit-learn, XGBoost (Models)
-* FastAPI, Pydantic, Uvicorn (Web service)
+* Flask, Waitress (Web service)
+* pytest (Tests)
 * Docker (Containerization)
 * Fly.io (Cloud deployment)
 
@@ -216,8 +217,58 @@ Reproduces the model selected in the notebook (prints the test metrics) and save
 uv run python src/train.py
 ```
 
-#### Step F: Run the web service and build the Docker image
-_To be added with `predict.py` and the `Dockerfile`._
+#### Step F: Run the web service locally
+The service loads `models/model.bin` (Step E) and listens on port 9696. Waitress is a production-grade WSGI server that runs on Windows, macOS and Linux.
+
+```bash
+cd src
+uv run waitress-serve --listen=0.0.0.0:9696 predict:app
+```
+
+Send a lot from another terminal:
+
+```bash
+curl -X POST http://localhost:9696/predict \
+  -H "Content-Type: application/json" \
+  -d '{"category": "Bovino Novillitos Regulares", "breed": "Braford",
+       "origin_province": "Entre Rios", "origin_department": "Diamante",
+       "dest_zone": "ZONA 5", "date": "2018-05-15", "head": 30, "avg_weight": 380}'
+```
+
+Response:
+
+```json
+{"premium": true, "premium_probability": 0.64, "warnings": []}
+```
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `category` | text | Steer category, e.g. `Bovino Novillitos Regulares` (must be one seen in training) |
+| `breed` | text | Breed; an unknown breed is accepted with a warning |
+| `origin_province` | text | `Entre Rios`, `Santa Fe`, `Corrientes` or `Misiones` |
+| `origin_department` | text | Department of origin; an unknown one is accepted with a warning |
+| `dest_zone` | text | `ZONA 1` to `ZONA 10` |
+| `date` | text | Sale date, `YYYY-MM-DD` (used for the day of the week) |
+| `head` | number | Animals in the lot, 1 to 1,000 |
+| `avg_weight` | number | Average live weight in kg, 100 to 1,100 |
+
+Invalid requests get a `400` response listing every problem. A health check is available at `GET /health`.
+
+Run the automated tests (they use Flask's test client, no server needed):
+
+```bash
+uv run pytest
+```
+
+#### Step G: Run the service in Docker
+Requires [Docker](https://docs.docker.com/get-docker/) and the trained model from Step E.
+
+```bash
+docker build -t cattle-price .
+docker run -it --rm -p 9696:9696 cattle-price
+```
+
+The image installs only the production dependencies (`uv sync --locked --no-dev`): no Jupyter, plotting libraries or XGBoost. The same `curl` request from Step F works against the container.
 
 ## 📂 Repository Structure
 
@@ -230,12 +281,13 @@ cattle-price/
 │   └── processed/             ← cleaned and modelling datasets (generated)
 ├── notebooks/
 │   └── notebook.ipynb         ← cleaning, EDA, model selection
+├── Dockerfile / .dockerignore ← container for the web service
 ├── src/
 │   ├── train.py               ← trains and saves the final model
-│   └── predict.py             ← web service (to do)
+│   └── predict.py             ← Flask web service
 ├── models/                    ← trained models (generated)
 ├── reports/figures/           ← charts used in this README
-├── tests/                     ← tests for the web service
+├── tests/                     ← pytest tests for the web service
 └── deployment/                ← cloud deployment files
 ```
 
