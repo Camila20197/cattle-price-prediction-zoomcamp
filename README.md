@@ -2,7 +2,7 @@
 
 This project is a personal initiative born at home: my father trades steers in Entre Ríos, Argentina, and every sale raises the same question — *is this a good price?* It implements an end-to-end Machine Learning project that estimates how much a lot of steers will be paid compared with the market, and which characteristics of the lot move that price.
 
-> **ML Zoomcamp 2026 — Midterm project.** Status: data cleaning and EDA done · model training and deployment in progress.
+> **ML Zoomcamp 2026 — Midterm project.** Status: cleaning, EDA, model training and training script done · web service and deployment in progress.
 
 ## 📑 Table of Contents
 * [❓ Problem Description](#-problem-description)
@@ -147,9 +147,32 @@ The data is split **by time** (59% train, 18% validation, 23% test) so the model
 | Regression | `rel_price` | Training median | Ridge regression | Decision tree, Random Forest, XGBoost | RMSE |
 | Classification | `premium` | Majority class | Logistic regression | Decision tree, Random Forest, XGBoost | ROC AUC |
 
-Each model is tuned (`alpha` / `C`, `max_depth`, `min_samples_leaf`, `n_estimators`, `eta`) on the validation set, and the best one is evaluated once on the test set.
+Each model is tuned (`C`, `max_depth`, `min_samples_leaf`, `n_estimators`, `eta`, `min_child_weight`) on the validation set, and the best one is evaluated once on the test set.
 
-_Results: to be added after training._
+### Results — premium classification
+
+| Model | Validation AUC |
+| :--- | :--- |
+| Baseline (majority class) | 0.500 |
+| Logistic regression (C=0.1) | 0.715 |
+| Decision tree (max_depth=12, min_samples_leaf=20) | 0.743 |
+| XGBoost (eta=0.1, max_depth=10, min_child_weight=1) | 0.827 |
+| **Random Forest (100 fully grown trees) — selected** | **0.830** |
+
+Random Forest and XGBoost are practically tied; the simpler model was selected. Retrained on train + validation and evaluated once on the test weeks:
+
+| Metric | Test set |
+| :--- | :--- |
+| ROC AUC | **0.813** |
+| Accuracy | 0.746 (baseline 0.556) |
+| Precision / Recall | 0.727 / 0.686 |
+| ROC AUC on Entre Ríos lots only | **0.834** |
+
+Most important variables: average weight (0.25), origin department (0.21) and lot size (0.19); the breed adds 0.09 — real but secondary, consistent with the EDA.
+
+![Final model](reports/figures/12_final_model.png)
+
+_The regression task (`rel_price`) follows the same recipe — to do._
 
 ## 🛠️ Reproducibility
 ### Local Setup
@@ -186,8 +209,15 @@ It cleans the data, runs the EDA and writes `data/processed/steers_litoral.csv.g
 uv run jupyter notebook notebooks/notebook.ipynb
 ```
 
-#### Step E: Train the models, run the web service and build the Docker image
-_To be added with `train.py`, `predict.py` and the `Dockerfile`._
+#### Step E: Train the final model
+Reproduces the model selected in the notebook (prints the test metrics) and saves it to `models/model.bin`:
+
+```bash
+uv run python src/train.py
+```
+
+#### Step F: Run the web service and build the Docker image
+_To be added with `predict.py` and the `Dockerfile`._
 
 ## 📂 Repository Structure
 
@@ -200,7 +230,9 @@ cattle-price/
 │   └── processed/             ← cleaned and modelling datasets (generated)
 ├── notebooks/
 │   └── notebook.ipynb         ← cleaning, EDA, model selection
-├── src/                       ← train.py and predict.py
+├── src/
+│   ├── train.py               ← trains and saves the final model
+│   └── predict.py             ← web service (to do)
 ├── models/                    ← trained models (generated)
 ├── reports/figures/           ← charts used in this README
 ├── tests/                     ← tests for the web service
