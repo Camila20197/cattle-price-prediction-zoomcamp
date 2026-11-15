@@ -2,7 +2,7 @@
 
 This project is a personal initiative born at home: my father trades steers in Entre Ríos, Argentina, and every sale raises the same question — *is this a good price?* It implements an end-to-end Machine Learning project that estimates how much a lot of steers will be paid compared with the market, and which characteristics of the lot move that price.
 
-> **ML Zoomcamp 2026 — Midterm project.** Status: cleaning, EDA, model training, training script, web service and Docker image done · cloud deployment in progress.
+> **ML Zoomcamp 2026 — Midterm project.** Status: data cleaning, EDA, model training, training script, web service and Docker image done.
 
 ## 📑 Table of Contents
 * [❓ Problem Description](#-problem-description)
@@ -21,15 +21,17 @@ This project is a personal initiative born at home: my father trades steers in E
 ## ❓ Problem Description
 In Argentina, cattle are sold to slaughterhouses (*frigoríficos*) in **lots**, at a price agreed per kg of live weight. Two lots of the same category sold in the same week can be paid very differently depending on the breed, the size of the lot, where it comes from, where it is slaughtered and the day it is sold.
 
-A small producer or trader has no simple way to know whether an offer is above or below what the market is paying for similar lots. This project addresses that problem with three questions:
+A small producer or trader has no simple way to know whether an offer is above or below what the market is paying for similar lots. This project explores that problem with three questions:
 
-* **Price estimation (regression):** how much will a lot be paid per kg of live weight?
-* **Premium detection (classification):** will the lot sell above the typical price of its category that week?
+* **Premium detection (classification) — the deployed model:** will the lot sell above the typical price of its category that week?
+* **Price estimation (regression) — planned:** how much above or below the typical price will the lot be paid? (see [Future Improvements](#-future-improvements))
 * **Breed analysis:** which breeds are paid above the typical price?
 
 **Scope:** steers and young steers (*novillos* and *novillitos*) from the Litoral provinces **Entre Ríos, Santa Fe, Corrientes and Misiones**.
 
-**How the model is used:** a web service receives the description of a lot (category, breed, origin, destination, number of head, average weight, day of the week) and returns the expected price **relative to the market** and the probability of selling at a premium. Multiplying the relative price by the current market price of the category gives an estimate in today's pesos.
+**How the model is used:** a web service receives the description of a lot (category, breed, origin, destination, number of head, average weight and sale date) and returns the **probability that the lot sells above the typical price** of its category that week. For example, 64% means that lots like this one were paid above the typical price about 64 times out of 100.
+
+The model does **not** return a price in pesos: prices in the data are from 2018 and would be meaningless today. What it learns — which characteristics make a lot sell better or worse than the market — is still useful.
 
 ### Why a relative price?
 Prices in the dataset are nominal 2018 pesos, a period of high inflation, so predicting pesos directly would mostly learn the calendar. Instead, each lot is compared with the **typical price**: the median price of the same category in the same week across the whole country.
@@ -64,8 +66,8 @@ The project follows the CRISP-DM process:
 2. **Exploratory Data Analysis:** univariate, bivariate and multivariate analysis to choose targets, features and methods.
 3. **Modelling:** linear models against tree-based models, with hyperparameter tuning and a time-based validation.
 4. **Training script:** `train.py` trains the final models and saves them.
-5. **Web service:** `predict.py` serves the model with Flask and the Waitress production server.
-6. **Containerization and deployment:** Docker image deployed to the cloud.
+5. **Web service:** `predict.py` serves the model with Flask and the Waitress production server — a web page in Spanish for producers and a JSON API.
+6. **Containerization:** the web service, the model and its dependencies packed in a Docker image that runs the same on any computer.
 
 ## 🖥️ Technologies Used
 
@@ -76,9 +78,9 @@ The project follows the CRISP-DM process:
 * Matplotlib, seaborn (Visualization)
 * scikit-learn, XGBoost (Models)
 * Flask, Waitress (Web service)
+* HTML + CSS with Jinja templates (Web interface, no external frameworks)
 * pytest (Tests)
 * Docker (Containerization)
-* Fly.io (Cloud deployment)
 
 ## 🔎 Exploratory Data Analysis
 The full analysis is in [notebooks/notebook.ipynb](notebooks/notebook.ipynb). Main findings for the project scope:
@@ -173,7 +175,7 @@ Most important variables: average weight (0.25), origin department (0.21) and lo
 
 ![Final model](reports/figures/12_final_model.png)
 
-_The regression task (`rel_price`) follows the same recipe — to do._
+_The regression task (`rel_price`) is not part of this submission; see [Future Improvements](#-future-improvements)._
 
 ## 🛠️ Reproducibility
 ### Local Setup
@@ -218,14 +220,18 @@ uv run python src/train.py
 ```
 
 #### Step F: Run the web service locally
-The service loads `models/model.bin` (Step E) and listens on port 9696. Waitress is a production-grade WSGI server that runs on Windows, macOS and Linux.
+The service loads `models/model.bin` and `models/form_options.json` (Step E) and listens on port 9696. Waitress is a production-grade WSGI server that runs on Windows, macOS and Linux.
 
 ```bash
 cd src
 uv run waitress-serve --listen=0.0.0.0:9696 predict:app
 ```
 
-Send a lot from another terminal:
+**Web interface.** Open http://localhost:9696 in a browser. The form (in Spanish, the language of its users) only offers values the model knows — departments are filtered by province — and works on desktop and mobile. A second page, *Cómo funciona*, explains the model and its limits.
+
+![Web interface](reports/figures/app_desktop.png)
+
+**JSON API.** Send a lot from another terminal:
 
 ```bash
 curl -X POST http://localhost:9696/predict \
@@ -261,14 +267,40 @@ uv run pytest
 ```
 
 #### Step G: Run the service in Docker
-Requires [Docker](https://docs.docker.com/get-docker/) and the trained model from Step E.
+The Docker image packs the web service, the trained model and its dependencies, so it runs the same way on any computer.
+
+**Requirements:** [Docker](https://docs.docker.com/get-docker/) installed and running (on Windows and macOS, open Docker Desktop first), and the files created in Step E: `models/model.bin` and `models/form_options.json`. The image copies them, so train the model before building.
+
+**1. Build the image** (from the project root; the first build downloads the base image and takes a few minutes):
 
 ```bash
 docker build -t cattle-price .
+```
+
+**2. Run a container:**
+
+```bash
 docker run -it --rm -p 9696:9696 cattle-price
 ```
 
-The image installs only the production dependencies (`uv sync --locked --no-dev`): no Jupyter, plotting libraries or XGBoost. The same `curl` request from Step F works against the container.
+* `-p 9696:9696` connects port 9696 of your computer with port 9696 inside the container.
+* `--rm` deletes the container when it stops; `-it` shows its output and lets you stop it with **Ctrl+C**.
+
+The container prints `Serving on http://0.0.0.0:9696`. `0.0.0.0` means the server accepts connections from outside the container; it is **not** an address to open in the browser.
+
+**3. Use it:** open **http://localhost:9696** for the web interface, or send the same `curl` request from Step F to `http://localhost:9696/predict`.
+
+**What is inside the image** (see the [Dockerfile](Dockerfile), commented step by step):
+
+| Step | What it does |
+| :--- | :--- |
+| `FROM python:3.14-slim` | Starts from a small official Python 3.14 image |
+| `COPY --from=ghcr.io/astral-sh/uv ...` | Adds uv |
+| `uv sync --locked --no-dev` | Installs only the production dependencies, with the exact versions of `uv.lock` — no Jupyter, plotting libraries or XGBoost |
+| `COPY src/... models/...` | Adds the service, its HTML templates and CSS, and the trained model |
+| `ENTRYPOINT waitress-serve ...` | Starts the Waitress server on port 9696 |
+
+Dependencies are installed **before** copying the code, so Docker reuses that layer: after changing `predict.py`, a rebuild takes seconds.
 
 ## 📂 Repository Structure
 
@@ -283,17 +315,20 @@ cattle-price/
 │   └── notebook.ipynb         ← cleaning, EDA, model selection
 ├── Dockerfile / .dockerignore ← container for the web service
 ├── src/
-│   ├── train.py               ← trains and saves the final model
-│   └── predict.py             ← Flask web service
+│   ├── train.py               ← trains and saves the model and the form options
+│   ├── predict.py             ← Flask web service: web pages + JSON API
+│   ├── templates/             ← HTML pages (Jinja)
+│   └── static/css/            ← styles
 ├── models/                    ← trained models (generated)
 ├── reports/figures/           ← charts used in this README
-├── tests/                     ← pytest tests for the web service
-└── deployment/                ← cloud deployment files
+└── tests/                     ← pytest tests for the web service
 ```
 
 ## 🔮 Future Improvements
 The main limitation of this project is the age of the data: the open microdata ends in 2018. The following enhancements are planned:
 
+* **Price estimation:** train the regression model on `rel_price` (how much above or below the typical price a lot is paid) and let the user enter the current typical price of the category to get an estimate in today's pesos.
+* **Cloud deployment:** publish the Docker image on AWS so the service can be used from a phone without running it locally.
 * **Current market prices:** build a data pipeline that extracts the weekly SIO Carnes reports (published as PDF) to obtain the current typical price of each category, so predictions can be expressed in today's pesos automatically.
 * **More years of microdata:** request updated lot-level data from the Ministry to study yearly seasonality, which six months cannot show.
 * **Better breed information:** more than half of the lots are recorded as "Criollo" or "Other"; a model could estimate the missing breed group.

@@ -1,0 +1,140 @@
+{% extends "layout.html" %}
+{% block titulo %}Evaluar un lote{% endblock %}
+{% block encabezado %}Evaluar un lote{% endblock %}
+{% block subtitulo %}Cargá los datos del lote y mirá qué chance tiene de venderse por encima del precio típico de la semana{% endblock %}
+
+{% block contenido %}
+{% for error in errors %}
+  <div class="aviso aviso-danger" role="alert">{{ error }}</div>
+{% endfor %}
+
+<div class="columnas">
+  <section class="panel">
+    <h2>Datos del lote</h2>
+    <form method="post" class="formulario" novalidate>
+      <fieldset class="opciones-tipo">
+        <legend>Provincia de origen</legend>
+        {% for province, name in province_names.items() %}
+          <label class="opcion">
+            <input type="radio" name="origin_province" value="{{ province }}" {{ 'checked' if data.origin_province == province }}>
+            {{ name }}
+          </label>
+        {% endfor %}
+      </fieldset>
+
+      <div class="fila-campos fila-2">
+        <label class="campo">
+          Departamento
+          <select name="origin_department" id="departamento" required>
+            {% for department in options.departments.get(data.origin_province, []) %}
+              <option value="{{ department }}" {{ 'selected' if data.origin_department == department }}>{{ department }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="campo">
+          Zona del frigorífico
+          <select name="dest_zone" required>
+            {% for zone in options.dest_zones %}
+              <option value="{{ zone }}" {{ 'selected' if data.dest_zone == zone }}>{{ zone.title() }} · {{ zone_names[zone] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="fila-campos fila-2">
+        <label class="campo">
+          Categoría
+          <select name="category" required>
+            {% for category in options.categories %}
+              <option value="{{ category }}" {{ 'selected' if data.category == category }}>{{ category_label(category) }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="campo">
+          Raza
+          <select name="breed" required>
+            {% for breed in options.breeds %}
+              <option value="{{ breed }}" {{ 'selected' if data.breed == breed }}>{{ breed_label(breed) }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="fila-campos">
+        <label class="campo">
+          Cabezas
+          <input type="number" name="head" value="{{ data.head }}" min="{{ limits.head[0] }}" max="{{ limits.head[1] }}"
+                 step="1" inputmode="numeric" placeholder="Ej. 30" required>
+        </label>
+        <label class="campo">
+          Peso promedio (kg)
+          <input type="number" name="avg_weight" value="{{ data.avg_weight }}" min="{{ limits.avg_weight[0] }}"
+                 max="{{ limits.avg_weight[1] }}" step="any" inputmode="decimal" placeholder="Ej. 380" required>
+        </label>
+        <label class="campo">
+          Fecha de venta
+          <input type="date" name="date" value="{{ data.date }}" required>
+        </label>
+      </div>
+
+      <div>
+        <button type="submit" class="boton boton-grande">Evaluar lote</button>
+      </div>
+    </form>
+  </section>
+
+  <div class="columna-lateral">
+    <section class="panel resultado {{ 'resultado-vacio' if not result }}" aria-live="polite">
+      {% if result %}
+        <span class="etiqueta">Chance de venderse por encima del precio típico</span>
+        <span class="resultado-valor">{{ result.percent }} %</span>
+        <div class="barra barra-grande"><span class="{{ 'barra-ok' if result.premium else 'barra-reorden' }}" style="width: {{ result.percent }}%"></span></div>
+        {% if result.premium %}
+          <span class="badge badge-ok">Por encima del precio típico</span>
+        {% else %}
+          <span class="badge badge-reorden">Por debajo del precio típico</span>
+        {% endif %}
+        <p class="resumen-lote">{{ result.summary }}.</p>
+        {% for warning in result.warnings %}
+          <div class="aviso aviso-alerta">{{ warning }}</div>
+        {% endfor %}
+        <p class="secundario">Es una orientación basada en ventas de 2018, no un asesoramiento. El precio típico es la mediana de la misma categoría en la misma semana en todo el país.</p>
+      {% else %}
+        <span class="etiqueta">Resultado</span>
+        <p class="vacio">Completá los datos del lote y apretá <strong>Evaluar lote</strong>.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Qué mira el modelo</h2>
+      <p class="secundario">Cuánto pesa cada dato en la predicción.</p>
+      <ul class="grafico-barras">
+        {% for name, percent in importance %}
+          <li>
+            <span class="etiqueta-barra">{{ name }}</span>
+            <div class="barra"><span style="width: {{ (percent / importance[0][1] * 100)|round|int }}%"></span></div>
+            <strong>{{ percent }} %</strong>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+</div>
+
+<script>
+  // Solo ayuda visual: al cambiar la provincia, el menú de departamentos muestra
+  // los de esa provincia. Sin JavaScript la página funciona igual.
+  (function () {
+    const departamentos = {{ options.departments|tojson }};
+    const menu = document.getElementById('departamento');
+    document.querySelectorAll('input[name="origin_province"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        menu.innerHTML = '';
+        departamentos[radio.value].forEach(function (nombre) {
+          menu.add(new Option(nombre, nombre));
+        });
+      });
+    });
+  })();
+</script>
+{% endblock %}

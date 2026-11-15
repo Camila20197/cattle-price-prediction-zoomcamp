@@ -1,0 +1,40 @@
+{#
+  Molde común de todas las pantallas. Sigue el diseño del Gestor de Stock:
+  menú lateral verde pino, contenido sobre fondo gris plomo claro.
+#}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Evaluar un lote{% endblock %} · Precio de hacienda</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="marca">
+      <span class="marca-barra"></span>
+      <strong>Precio de hacienda</strong>
+      <small>Novillos y novillitos · Litoral</small>
+    </div>
+
+    <nav>
+      <a href="{{ url_for('index') }}" class="{{ 'activo' if request.endpoint in ('index', 'evaluate') }}">Evaluar un lote</a>
+      <a href="{{ url_for('about') }}" class="{{ 'activo' if request.endpoint == 'about' }}">Cómo funciona</a>
+    </nav>
+
+    <p class="pie-menu">Datos: SIO Carnes (MAGyP), enero a junio de 2018.</p>
+  </aside>
+
+  <main class="contenido">
+    <header class="encabezado">
+      <div>
+        <h1>{% block encabezado %}{% endblock %}</h1>
+        <p class="subtitulo">{% block subtitulo %}{% endblock %}</p>
+      </div>
+    </header>
+
+    {% block contenido %}{% endblock %}
+  </main>
+</body>
+</html>

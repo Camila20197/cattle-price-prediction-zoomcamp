@@ -13,6 +13,7 @@ Usage:
 """
 from __future__ import annotations
 
+import json
 import pickle
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_a
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RAW_SALES = PROJECT_ROOT / "data" / "raw" / "sio-carnes-01-ene-a-30-jun-.csv"
 MODEL_FILE = PROJECT_ROOT / "models" / "model.bin"
+OPTIONS_FILE = PROJECT_ROOT / "models" / "form_options.json"
 
 # --- Raw file format (notebook section 1) ---------------------------------
 SEPARATOR, ENCODING = ";", "latin-1"
@@ -121,6 +123,23 @@ def train(lots: pd.DataFrame) -> tuple[DictVectorizer, RandomForestClassifier]:
     return dv, model
 
 
+def form_options(lots: pd.DataFrame) -> dict:
+    """Values the web form offers, taken from the training data.
+
+    Departments are grouped by province so the form only shows the ones that
+    belong to the chosen province; breeds are sorted from most to least common.
+    """
+    return {
+        "categories": sorted(lots["category"].unique()),
+        "breeds": lots["breed"].value_counts().index.tolist(),
+        "departments": {
+            province: sorted(lots.loc[lots["origin_province"] == province, "origin_department"].unique())
+            for province in PROVINCES
+        },
+        "dest_zones": sorted(lots["dest_zone"].unique(), key=lambda zone: int(zone.split()[-1])),
+    }
+
+
 def main() -> None:
     print(f"Reading {RAW_SALES.name}")
     sales = load_clean_sales()
@@ -134,6 +153,9 @@ def main() -> None:
         pickle.dump((dv, model), file)
     print(f"Saved DictVectorizer + model to {MODEL_FILE} "
           f"({MODEL_FILE.stat().st_size / 1_000_000:.1f} MB)")
+
+    OPTIONS_FILE.write_text(json.dumps(form_options(lots), ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Saved the web form options to {OPTIONS_FILE}")
 
 
 if __name__ == "__main__":

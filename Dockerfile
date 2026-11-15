@@ -3,7 +3,8 @@
 # Build:  docker build -t cattle-price .
 # Run:    docker run -it --rm -p 9696:9696 cattle-price
 #
-# models/model.bin must exist before building: run `uv run python src/train.py` first.
+# models/model.bin and models/form_options.json must exist before building:
+# run `uv run python src/train.py` first.
 
 FROM python:3.14-slim
 
@@ -17,10 +18,13 @@ WORKDIR /app
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --locked --no-dev --no-install-project
 
-# 2. The service and the trained model
+# 2. The service (code, HTML templates, CSS) and the trained model with the form options
 COPY src/predict.py ./
-COPY models/model.bin ./models/model.bin
-ENV MODEL_PATH=/app/models/model.bin
+COPY src/templates ./templates
+COPY src/static ./static
+COPY models/model.bin models/form_options.json ./models/
+ENV MODEL_PATH=/app/models/model.bin \
+    OPTIONS_PATH=/app/models/form_options.json
 
 # Use the virtual environment created by uv
 ENV PATH="/app/.venv/bin:$PATH"

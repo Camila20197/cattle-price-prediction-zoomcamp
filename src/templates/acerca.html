@@ -1,0 +1,61 @@
+{% extends "layout.html" %}
+{% block titulo %}Cómo funciona{% endblock %}
+{% block encabezado %}Cómo funciona{% endblock %}
+{% block subtitulo %}Qué responde el modelo, con qué datos se armó y hasta dónde confiar en él{% endblock %}
+
+{% block contenido %}
+{# Métricas del conjunto de prueba (semanas 21 a 26), sección 6.8 del notebook #}
+<div class="kpis">
+  <div class="tarjeta">
+    <span class="etiqueta">Lotes analizados</span>
+    <span class="valor">24.466</span>
+    <span class="detalle">Novillos y novillitos del Litoral</span>
+  </div>
+  <div class="tarjeta">
+    <span class="etiqueta">Aciertos</span>
+    <span class="valor">75 %</span>
+    <span class="detalle">Contra 56 % de adivinar siempre "no"</span>
+  </div>
+  <div class="tarjeta">
+    <span class="etiqueta">Capacidad para ordenar lotes</span>
+    <span class="valor">0,81</span>
+    <span class="detalle">AUC; 0,5 es azar y 1 es perfecto</span>
+  </div>
+  <div class="tarjeta">
+    <span class="etiqueta">Solo Entre Ríos</span>
+    <span class="valor">0,83</span>
+    <span class="detalle">AUC en lotes entrerrianos</span>
+  </div>
+</div>
+
+<div class="columnas columnas-iguales">
+  <section class="panel">
+    <h2>Qué responde</h2>
+    <p>Para un lote de novillos o novillitos, estima la chance de que se venda <strong>por encima del precio típico</strong>:
+      la mediana del precio por kilo vivo de la misma categoría, en la misma semana, en todo el país.</p>
+    <p>Comparar contra la misma semana saca del medio la inflación: lo que queda es lo que tiene el lote de distinto.</p>
+    <h2>Con qué datos</h2>
+    <p>Ventas a faena registradas en el <strong>SIO Carnes</strong> del Ministerio de Agricultura, Ganadería y Pesca,
+      de enero a junio de 2018, de Entre Ríos, Santa Fe, Corrientes y Misiones.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Lo que mostraron los datos</h2>
+    <ul class="lista-estados">
+      <li><span>Los lotes grandes se pagan mejor</span><span class="badge badge-ok">+12 % con más de 40 cabezas</span></li>
+      <li><span>Un animal suelto se paga menos</span><span class="badge badge-reorden">−7 %</span></li>
+      <li><span>Mandar a Buenos Aires (zonas 1 y 2)</span><span class="badge badge-ok">+2 a +3 %</span></li>
+      <li><span>Holando, raza lechera</span><span class="badge badge-reorden">−9 %</span></li>
+      <li><span>Vender un lunes</span><span class="badge badge-reorden">−3 %</span></li>
+    </ul>
+    <h2>Límites</h2>
+    <ul class="lista-limites">
+      <li>Son datos de 2018: muestra patrones del mercado, no precios de hoy.</li>
+      <li>La raza la declara quien vende, y en la mitad de los lotes dice "Criollo" u "Otra".</li>
+      <li>Mide sobreprecio, no ganancia: los datos no tienen costos.</li>
+    </ul>
+  </section>
+</div>
+
+<p class="secundario">Proyecto educativo (ML Zoomcamp). No es asesoramiento financiero ni está asociado al MAGyP.</p>
+{% endblock %}

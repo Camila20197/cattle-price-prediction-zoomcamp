@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-MODEL_FILE = Path(__file__).resolve().parents[1] / "models" / "model.bin"
-if not MODEL_FILE.exists():
-    pytest.skip("models/model.bin not found: run `uv run python src/train.py` first", allow_module_level=True)
+MODELS = Path(__file__).resolve().parents[1] / "models"
+if not (MODELS / "model.bin").exists() or not (MODELS / "form_options.json").exists():
+    pytest.skip("models/model.bin or form_options.json not found: run `uv run python src/train.py` first", allow_module_level=True)
 
 from predict import app  # noqa: E402  (imported after the check above)
 
@@ -65,3 +65,36 @@ def test_unknown_breed_gives_a_warning(client):
     response = client.post("/predict", json={**LOT, "breed": "Wagyu"})
     assert response.status_code == 200
     assert "breed 'Wagyu'" in response.get_json()["warnings"][0]
+
+
+# --- Web pages -------------------------------------------------------------
+FORM = {**LOT, "head": "30", "avg_weight": "380"}
+
+
+def test_form_page_loads(client):
+    page = client.get("/").get_data(as_text=True)
+    assert "Evaluar lote" in page
+    assert "Diamante" in page          # departments of the default province (Entre Ríos)
+
+
+def test_form_shows_a_result(client):
+    response = client.post("/", data=FORM)
+    page = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert "Chance de venderse por encima del precio típico" in page
+    assert " %" in page
+
+
+def test_form_accepts_decimal_comma(client):
+    response = client.post("/", data={**FORM, "avg_weight": "380,5"})
+    assert response.status_code == 200
+
+
+def test_form_shows_errors_in_spanish(client):
+    response = client.post("/", data={**FORM, "head": "0"})
+    assert response.status_code == 400
+    assert "La cantidad de cabezas tiene que estar entre 1 y 1.000" in response.get_data(as_text=True)
+
+
+def test_about_page_loads(client):
+    assert "Cómo funciona" in client.get("/acerca").get_data(as_text=True)
